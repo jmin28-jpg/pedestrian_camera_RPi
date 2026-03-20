@@ -553,6 +553,9 @@ class WindowUI:
         self.btn_conn = None
         self.btn_disc = None
         self.btn_test = None
+        # Config Info UI
+        self.lbl_config_path = None
+        self.txt_config_help = None
 
     def setup_ui(self, main_window: QMainWindow):
         """메인 윈도우의 레이아웃을 구성합니다."""
@@ -832,6 +835,25 @@ class WindowUI:
         form_prog = QFormLayout(grp_prog)
         form_prog.addRow("버전 :", QLabel("ver 1.0 (RPi)"))
         left_layout.addWidget(grp_prog)
+
+        # [추가] 프로그램 Config 정보 영역
+        grp_config = QGroupBox("프로그램 Config")
+        config_layout = QVBoxLayout(grp_config)
+        
+        # 파일 경로 표시
+        self.lbl_config_path = QLabel("-")
+        self.lbl_config_path.setStyleSheet("color: #2E5F9E; font-weight: bold; font-family: 'Consolas', monospace;")
+        self.lbl_config_path.setWordWrap(True)
+        config_layout.addWidget(QLabel("파일 경로:"))
+        config_layout.addWidget(self.lbl_config_path)
+        
+        # 설명 텍스트
+        self.txt_config_help = QTextEdit()
+        self.txt_config_help.setReadOnly(True)
+        self.txt_config_help.setStyleSheet("font-size: 8.5pt; color: #444;")
+        config_layout.addWidget(self.txt_config_help)
+        
+        left_layout.addWidget(grp_config)
         
         left_layout.addStretch()
         layout.addLayout(left_layout, stretch=1)

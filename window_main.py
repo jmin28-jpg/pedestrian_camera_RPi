@@ -136,6 +136,9 @@ class WindowSum(QMainWindow):
         # UI 시그널 연결
         self._connect_ui_signals()
         
+        # [추가] Config 정보 UI 업데이트
+        self._init_config_ui_info()
+        
         # UI 변수 초기화 (reload_cameras 등에서 참조)
         self.tiles = {}  # {camera_key: {'frame': QFrame, 'video': VideoWidget, 'label': QLabel, 'layout': QStackedLayout}}
         self.camera_items = {} # {camera_key: CameraListItem} - UI 제어용
@@ -304,6 +307,35 @@ class WindowSum(QMainWindow):
     def on_keep_watching_changed(self, state):
         status = "ON" if state == Qt.CheckState.Checked.value else "OFF"
         logger.info(f"[Main] Keep Watching toggled: {status}")
+
+    def _init_config_ui_info(self):
+        """Information 탭의 Config 정보 초기화"""
+        if not hasattr(self.ui, 'lbl_config_path') or not hasattr(self.ui, 'txt_config_help'):
+            return
+            
+        # 파일 경로 설정
+        path_str = str(self.cfg_mgr.config_file)
+        self.ui.lbl_config_path.setText(path_str)
+        
+        # 도움말 텍스트 설정
+        help_text = (
+            "[변경 방법]\n"
+            "1. 프로그램 종료\n"
+            "2. 위 경로의 config.ini 파일 열기 (메모장 등)\n"
+            "3. 값 수정 후 저장\n"
+            "4. 프로그램 재실행\n\n"
+            "[주요 설정 안내]\n"
+            "- log_retention_days : 로그 보관 기간\n"
+            "- gpio.pulse_ms : GPIO 신호 출력 시간 변경(밀리초)\n"
+            "- gpio.pulse_count : GPIO 반복 출력 횟수 \n"
+            "- gpio.pulse_interval : 반복 출력 간격 (초)\n"
+            "- event.enable : 이벤트 수신 기능 ON/OFF\n"
+            "- monitor.idle_stop_enable : 부재 시 자동 정지 사용\n\n"
+            "[주의사항]\n"
+            "- '내부 관리용' 항목은 수정하지 마십시오.\n"
+            "- 잘못된 설정 시 프로그램이 오작동할 수 있습니다."
+        )
+        self.ui.txt_config_help.setText(help_text)
 
     def _connect_roi_signals(self):
         self.ui.btn_roi_area1.clicked.connect(lambda: self.on_roi_area_clicked(1))
