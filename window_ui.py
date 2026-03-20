@@ -824,7 +824,7 @@ class WindowUI:
         grp_company = QGroupBox("회사 정보")
         form_comp = QFormLayout(grp_company)
         form_comp.addRow("회사명 :", QLabel("오디텍, ODTECH"))
-        form_comp.addRow("주소 :", QLabel("전북특별자치도 완주군 봉동읍 용암리 814"))
+        form_comp.addRow("주소 :", QLabel("전북특별자치도 완주군 봉동읍 완주산단5로 87 (용암리)"))
         form_comp.addRow("홈페이지 :", QLabel("http://www.od-tech.com"))
         left_layout.addWidget(grp_company)
         
