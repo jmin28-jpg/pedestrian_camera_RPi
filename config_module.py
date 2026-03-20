@@ -30,14 +30,14 @@ CONFIG_SCHEMA = {
         'comment': '이벤트 수신 및 처리 설정',
         'items': [
             ('enable', 'true', '이벤트 수신 기능 사용 여부 (true/false)'),
-            ('heartbeat', '60', 'Heartbeat 주기 (초) - ※ 내부/예약 설정 (현재 RPi 버전에서는 일부 미사용)'),
-            ('connect_timeout', '5', '연결 타임아웃 (초) - ※ 내부/예약 설정 (현재 RPi 버전에서는 일부 미사용)'),
-            ('read_timeout', '65', '수신 대기 타임아웃 (초) - ※ 내부/예약 설정 (현재 RPi 버전에서는 일부 미사용)'),
-            ('backoff_min', '1', '재연결 최소 대기시간 (초) - ※ 내부/예약 설정 (현재 RPi 버전에서는 일부 미사용)'),
-            ('backoff_max', '30', '재연결 최대 대기시간 (초) - ※ 내부/예약 설정 (현재 RPi 버전에서는 일부 미사용)'),
-            ('cooldown_sec', '2', '이벤트 중복 수신 방지 쿨다운 (초)'),
-            ('stay_cooldown_sec', '2', '체류 이벤트 알림 쿨다운 (초)'),
-            ('stay_hold_ms', '10000', '체류 상태 유지 시간 (밀리초)'),
+            ('heartbeat_seconds', '60', 'Heartbeat 주기 (초) - ※ 내부/예약 설정 (현재 RPi 버전에서는 일부 미사용)'),
+            ('connect_timeout_seconds', '5', '연결 타임아웃 (초) - ※ 내부/예약 설정 (현재 RPi 버전에서는 일부 미사용)'),
+            ('read_timeout_seconds', '65', '수신 대기 타임아웃 (초) - ※ 내부/예약 설정 (현재 RPi 버전에서는 일부 미사용)'),
+            ('backoff_min_seconds', '1', '재연결 최소 대기시간 (초) - ※ 내부/예약 설정 (현재 RPi 버전에서는 일부 미사용)'),
+            ('backoff_max_seconds', '30', '재연결 최대 대기시간 (초) - ※ 내부/예약 설정 (현재 RPi 버전에서는 일부 미사용)'),
+            ('cooldown_seconds', '2', '이벤트 중복 수신 방지 쿨다운 (초)'),
+            ('stay_cooldown_seconds', '2', '체류 이벤트 알림 쿨다운 (초)'),
+            ('stay_hold_seconds', '10.0', '체류 상태 유지 시간 (초)'),
             ('log_load_limit', '200', 'UI에 표시할 최근 이벤트 개수')
         ]
     },
@@ -45,9 +45,9 @@ CONFIG_SCHEMA = {
         'comment': 'GPIO 하드웨어 출력 설정',
         'items': [
             ('enable', 'true', 'GPIO 사용 여부 (true/false)'),
-            ('pulse_ms', '250', '출력 펄스 지속 시간 (밀리초)'),
+            ('pulse_seconds', '0.25', '1회 GPIO 출력 유지 시간 (초)'),
             ('pulse_count', '2', '이벤트 1건당 GPIO 출력 반복 횟수'),
-            ('pulse_interval', '0.1', '반복 펄스 사이 대기 시간(초)'),
+            ('pulse_interval_seconds', '0.1', '반복 출력 사이 대기 시간 (초)'),
             ('retrigger_policy', 'extend', '중복 트리거 정책 (extend:시간연장, ignore:무시, restart:재시작)'),
             ('console_log', 'false', 'GPIO 동작 콘솔 출력 여부 (디버깅용)')
         ]
@@ -56,7 +56,7 @@ CONFIG_SCHEMA = {
         'comment': '모니터링 및 자동 정지 설정',
         'items': [
             ('idle_stop_enable', 'true', '사용자 부재 시 자동 모니터링 정지 사용 여부'),
-            ('idle_stop_sec', '300', '부재 판단 시간 (초, 300=5분)')
+            ('idle_stop_seconds', '300', '부재 판단 시간 (초, 300=5분)')
         ]
     }
 }
@@ -128,13 +128,28 @@ class ConfigManager:
         self.config.read(str(self.config_file), encoding='utf-8')
         return self.config
 
+    def get_float_with_fallback(self, section, new_key, old_key, default, from_ms=False):
+        """설정 값을 읽되, 새 키가 없으면 이전 키를 읽어 변환 (하위 호환)"""
+        if self.config.has_option(section, new_key):
+            return self.config.getfloat(section, new_key, fallback=default)
+        
+        if self.config.has_option(section, old_key):
+            if from_ms:
+                # ms -> seconds 변환
+                return self.config.getint(section, old_key, fallback=int(default*1000)) / 1000.0
+            else:
+                # seconds -> seconds (이름만 변경)
+                return self.config.getfloat(section, old_key, fallback=default)
+        
+        return default
+
     def get_gpio_config(self):
         """GPIO 설정 반환"""
         return {
             'enable': self.config.getboolean('gpio', 'enable', fallback=True),
-            'pulse_ms': self.config.getint('gpio', 'pulse_ms', fallback=500),
-            'pulse_count': self.config.getint('gpio', 'pulse_count', fallback=1),
-            'pulse_interval': self.config.getfloat('gpio', 'pulse_interval', fallback=0.1),
+            'pulse_seconds': self.get_float_with_fallback('gpio', 'pulse_seconds', 'pulse_ms', 0.25, from_ms=True),
+            'pulse_count': self.config.getint('gpio', 'pulse_count', fallback=2),
+            'pulse_interval_seconds': self.get_float_with_fallback('gpio', 'pulse_interval_seconds', 'pulse_interval', 0.1),
             'retrigger_policy': self.config.get('gpio', 'retrigger_policy', fallback='extend'),
             'console_log': self.config.getboolean('gpio', 'console_log', fallback=False)
         }

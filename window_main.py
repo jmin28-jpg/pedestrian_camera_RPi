@@ -156,9 +156,9 @@ class WindowSum(QMainWindow):
         self.discovered_areas = {} # {camera_key: set(area_ids)}
         self.realtime_counts = {} # {camera_key: {area_id: count}}
         self.camera_conn_status = {} # {camera_key: bool} - 연결 상태 추적용
-        self.event_cooldown_sec = self.config.getint('event', 'cooldown_sec', fallback=2)
-        self.stay_cooldown_sec = self.config.getint('event', 'stay_cooldown_sec', fallback=10)
-        self.stay_hold_ms = self.config.getint('event', 'stay_hold_ms', fallback=10000)
+        self.event_cooldown_seconds = self.cfg_mgr.get_float_with_fallback('event', 'cooldown_seconds', 'cooldown_sec', 2.0)
+        self.stay_cooldown_seconds = self.cfg_mgr.get_float_with_fallback('event', 'stay_cooldown_seconds', 'stay_cooldown_sec', 2.0)
+        self.stay_hold_seconds = self.cfg_mgr.get_float_with_fallback('event', 'stay_hold_seconds', 'stay_hold_ms', 10.0, from_ms=True)
         self.log_load_limit = self.config.getint('event', 'log_load_limit', fallback=200)
         self._last_restart_time_event = {} # {camera_key: timestamp}
         self._last_restart_time_video = {} # {camera_key: timestamp}
@@ -207,7 +207,7 @@ class WindowSum(QMainWindow):
 
         # DB_PATH 로그 강제 표시 (앱 시작 시 확인용)
         self.add_event_log(f"[DEBUG] DB_PATH: {db_module.get_db_path()}")
-        self.add_event_log(f"[DEBUG] cooldown_sec={self.event_cooldown_sec}, stay_cooldown={self.stay_cooldown_sec}, stay_hold={self.stay_hold_ms}ms")
+        self.add_event_log(f"[DEBUG] cooldown={self.event_cooldown_seconds}s, stay_cooldown={self.stay_cooldown_seconds}s, stay_hold={self.stay_hold_seconds}s")
         
         if mig_msg:
             self.add_event_log(f"[DEBUG] {mig_msg}")
@@ -264,8 +264,8 @@ class WindowSum(QMainWindow):
         self.log_rotate_timer.start(60000) # 60초마다 체크
 
         # [Commit M1-2] Idle Monitor 설정 및 초기화
-        self.idle_stop_enable = self.config.getboolean('monitor', 'idle_stop_enable', fallback=True)
-        self.idle_stop_sec = self.config.getint('monitor', 'idle_stop_sec', fallback=300)
+        self.idle_stop_enable = self.cfg_mgr.config.getboolean('monitor', 'idle_stop_enable', fallback=True)
+        self.idle_stop_seconds = self.cfg_mgr.get_float_with_fallback('monitor', 'idle_stop_seconds', 'idle_stop_sec', 300.0)
         self._last_user_activity_ts = time.time()
         self._auto_stop_fired = False
         
@@ -326,10 +326,11 @@ class WindowSum(QMainWindow):
             "4. 프로그램 재실행\n\n"
             "[주요 설정 안내]\n"
             "- log_retention_days : 로그 보관 기간\n"
-            "- gpio.pulse_ms : GPIO 신호 출력 시간 변경(밀리초)\n"
-            "- gpio.pulse_count : GPIO 반복 출력 횟수 \n"
-            "- gpio.pulse_interval : 반복 출력 간격 (초)\n"
+            "- gpio.pulse_seconds : 1회 GPIO 출력 유지 시간(초)\n"
+            "- gpio.pulse_count : GPIO 반복 출력 횟수\n"
+            "- gpio.pulse_interval_seconds : 반복 출력 사이 대기 시간(초)\n"
             "- event.enable : 이벤트 수신 기능 ON/OFF\n"
+            "- event.stay_hold_seconds : 체류 상태 유지 시간(초)\n"
             "- monitor.idle_stop_enable : 부재 시 자동 정지 사용\n\n"
             "[주의사항]\n"
             "- '내부 관리용' 항목은 수정하지 마십시오.\n"
@@ -1489,7 +1490,7 @@ class WindowSum(QMainWindow):
                 now = time.time()
                 last_emit_ts = self.last_event_timestamps.get(state_key, 0)
                 
-                if (now - last_emit_ts) >= self.event_cooldown_sec:
+                if (now - last_emit_ts) >= self.event_cooldown_seconds:
                     self.last_event_timestamps[state_key] = now
                     self.add_event_log(event_data['message'])
                     self.total_events += 1
@@ -1553,7 +1554,7 @@ class WindowSum(QMainWindow):
 
             # 로그/DB 기록 (쿨다운 적용)
             last_emit = self.stay_last_emit.get(cooldown_key, 0)
-            if (now - last_emit) >= self.stay_cooldown_sec:
+            if (now - last_emit) >= self.stay_cooldown_seconds:
                 cam_ip = self._get_camera_ip(cam_key)
                 msg = f"체류 감지 이벤트 수신: {cam_ip} Area {area_id} Action:Start"
                 event_data['message'] = msg
@@ -1574,7 +1575,7 @@ class WindowSum(QMainWindow):
             timer.setSingleShot(True)
             # lambda를 사용하여 인자 전달
             timer.timeout.connect(lambda sk=state_key: self._clear_stay_state(sk[0], sk[1]))
-            timer.start(self.stay_hold_ms)
+            timer.start(int(self.stay_hold_seconds * 1000))
             self._stay_clear_timers[state_key] = timer
 
     def _get_camera_ip(self, key):
@@ -2112,7 +2113,7 @@ class WindowSum(QMainWindow):
             return
 
         now = time.time()
-        if now - self._last_user_activity_ts >= self.idle_stop_sec:
+        if now - self._last_user_activity_ts >= self.idle_stop_seconds:
             msg = "[Main] Auto-stopped monitoring due to inactivity while video playing"
             logger.info(msg)
             self.add_event_log("[Main] Auto-stopped monitoring due to inactivity")

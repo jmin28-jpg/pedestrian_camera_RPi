@@ -88,13 +88,13 @@ class GpioBridge:
         if not self.is_connected:
             return
 
-        pulse_sec = conf['pulse_ms'] / 1000.0
+        pulse_sec = conf['pulse_seconds']
         policy = conf.get('retrigger_policy', 'extend')
         now = time.time()
         
         # [추가] 반복 펄스 설정 읽기
         count = conf.get('pulse_count', 1)
-        interval = conf.get('pulse_interval', 0.1)
+        interval = conf.get('pulse_interval_seconds', 0.1)
         if count < 1: count = 1
         if interval < 0: interval = 0.0
 
